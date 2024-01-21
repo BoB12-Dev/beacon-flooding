@@ -7,12 +7,15 @@
 #include <stdbool.h>
 #include "beacon_frame.h"
 
+
 void generateRandomMac(u_int8_t *mac);
 void initPacket(struct Packet *packet);
 void printMacAddress(uint8_t *mac);
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
+int main(int argc, char *argv[])
+{
+    if (argc != 3)
+    {
         fprintf(stderr, "Usage: %s <interface> <ssid-list-file>\n", argv[0]);
         return -1;
     }
@@ -22,14 +25,16 @@ int main(int argc, char *argv[]) {
 
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *pcap = pcap_open_live(interfaceName, BUFSIZ, 1, 1000, errbuf);
-    if (pcap == NULL) {
+    if (pcap == NULL)
+    {
         fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interfaceName, errbuf);
         return -1;
     }
 
     FILE *fp;
     fp = fopen(filename, "rb");
-    if (fp == NULL) {
+    if (fp == NULL)
+    {
         fprintf(stderr, "파일을 열 수 없습니다.\n");
         return 1;
     }
@@ -38,39 +43,46 @@ int main(int argc, char *argv[]) {
     struct Packet packet;
     initPacket(&packet); // 패킷 전체 초기화
 
-    while (true) {
-    while ((fgets(beacon_name, sizeof(beacon_name), fp)) != 0) {
-        // 파일에서 한 줄을 읽어와 flooding할 beacon name을 설정.
-        char *ssid = strtok(beacon_name, "\r\n\t");
+    while (true)
+    {
+        while ((fgets(beacon_name, sizeof(beacon_name), fp)) != 0)
+        {
+            // 파일에서 한 줄을 읽어와 flooding할 beacon name을 설정.
+            // 우측 공백 제거하기
+            if (beacon_name[strlen(beacon_name) - 1] == 0x0d || beacon_name[strlen(beacon_name) - 1] == 0x0a)
+            {
+                beacon_name[strlen(beacon_name) - 1] = 0x00;
+            }
+            memcpy(packet.tag_ssid.ssid, beacon_name, 32);
 
-        // Beacon_Packet 구조체 초기화 함수 호출
-        
-        // Source Address 설정
-        generateRandomMac(packet.beacon.source_address);
-        // 나머지 필요한 값들을 설정
-        memcpy(packet.tag.ssid.ssid, ssid, 32);
-        memcpy(packet.beacon.bssid, packet.beacon.source_address, 6);
+            // Source Address 설정
+            generateRandomMac(packet.beacon.source_address);
+            // ssid, bssid 설정
 
-        printMacAddress(packet.beacon.source_address);
-        printf("ssid name : %s\n", ssid);
-        // 패킷을 pcap으로 전송
-        if (pcap_sendpacket(pcap, (unsigned char*)&packet, sizeof(packet)) != 0) {
-            printf("send fail\n");
-            exit(-1);
-        } // Beacon Flooding 패킷을 보냄
+            memcpy(packet.beacon.bssid, packet.beacon.source_address, 6);
 
-        memset(packet.beacon.bssid,0,6);
-        memset(packet.tag.ssid.ssid,0,32);
-        memset(beacon_name,0,34);
-        usleep(10000);
+            printMacAddress(packet.beacon.source_address);
+            // printf("ssid name : %s\n", beacon_name);
+            // 패킷을 pcap으로 전송
+            if (pcap_sendpacket(pcap, (unsigned char *)&packet, sizeof(packet)) != 0)
+            {
+                printf("send fail\n");
+                exit(-1);
+            } // Beacon Flooding 패킷을 보냄
+            printf(" packet size : %d \n", sizeof(packet));
+            // 전송후 필드 다시 초기화
+            memset(packet.beacon.bssid,0,6);
+            memset(packet.tag_ssid.ssid,0,32);
+            memset(beacon_name,0,34);
+            usleep(100000);
+        }
+        // 파일 첫부분으로 이동
+        if (feof(fp))
+        {
+            fseek(fp, 0, SEEK_SET);
+        }
+        memset(packet.beacon.source_address, 0, 6);
     }
-    // 파일 첫부분으로 이동
-    if (feof(fp)) {
-        fseek(fp, 0, SEEK_SET);
-    }
-    memset(packet.beacon.source_address, 0, 6);
-}
-
 
     fclose(fp);
     pcap_close(pcap);
@@ -78,48 +90,73 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void generateRandomMac(uint8_t *mac) {
+void generateRandomMac(uint8_t *mac)
+{
     mac[0] = 0x00;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++)
+    {
         mac[i] = rand() % 256;
     }
 }
 
-void initPacket(struct Packet *packet) {
+void initPacket(struct Packet *packet)
+{
     // Structure initialization function modified
     memset(packet, 0, sizeof(struct Packet));
 
-    // Common values setting
-    packet->beacon.type = 0x0800; // Beacon Frame type
-    packet->beacon.duration = 0;
+    //Radiotap
+    packet->radiotap.header_revison = 0x00;
+    packet->radiotap.header_pad = 0x00;
+    packet->radiotap.header_length = 0x000b;
+    packet->radiotap.header_presentflag = 0x00028000;
 
-    // Set destination_address to broadcast address (FF:FF:FF:FF:FF:FF)
-    memset(packet->beacon.destination_address, 0xFF, 6);
-    memset(packet->beacon.source_address, 0, 6);
-    memset(packet->beacon.bssid, 0, 6);
-    packet->beacon.sequence_number = 0;
-    packet->tag.ssid.number = 0; // Tag number for SSID
-    // You may set a default SSID or leave it empty depending on your requirement
-    packet->tag.ssid.length = 0; // Length of SSID
-    memset(packet->tag.ssid.ssid, 0, sizeof(packet->tag.ssid.ssid));
+    //beacon frame
+    packet->beacon.type = 0x0080;
+    packet->beacon.duration = 0x0000;
+    memset(packet->beacon.destination_address,0xFF,6);
+    memset(packet->beacon.source_address,0x00,6);
+    memset(packet->beacon.bssid,0x00,6);
+    packet->beacon.sequence_number = 0x0000;
+
+    //Fixed
+    packet->fixed.timestamp = 0x0000000000000000;
+    packet->fixed.interval = 0x0000;
+    packet->fixed.capabilities = 0x0000;
+
+    //SSID
+    packet->tag_ssid.number = 0x00;
+    packet->tag_ssid.length = 0x20;
+    memset(packet->tag_ssid.ssid,0x00,32);
+
+    //DS
+    packet->tag_ds.number = 0x03;
+    packet->tag_ds.length = 0x01;
+    packet->tag_ds.channel = 0x01;
+
+    //Support
+    packet->tag_support.number = 0x01;
+    packet->tag_support.length = 0x03;
+    uint8_t rate[] = {0x32,0x8b,0x95};
+    memcpy(packet->tag_support.rates,rate,sizeof(rate));
+
 }
 
-
-
-
 // void printMacAddress(uint8_t *mac){
-//     printf("tmp MAC address : %02X:%02X:%02X:%02X:%02X:%02X \n", 
+//     printf("tmp MAC address : %02X:%02X:%02X:%02X:%02X:%02X \n",
 //         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], mac[6]
 //     );
 // }
 
-void printMacAddress(uint8_t *mac) {
+void printMacAddress(uint8_t *mac)
+{
     printf("tmp MAC address: ");
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++)
+    {
         printf("%02X", mac[i]);
-        if (i < 5) {
+        if (i < 5)
+        {
             printf(":");
         }
     }
-    printf("\n");
+    // printf("\n");
 }
