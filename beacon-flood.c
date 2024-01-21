@@ -28,6 +28,17 @@ struct Beacon_Packet {
     } tag_ssid;
 };
 
+
+void generateRandomMac(uint8_t *mac) {
+    // 첫 번째 바이트는 Locally Administered로 설정 (02:xx:xx:xx:xx:xx)
+    mac[0] = 0x02;
+
+    // 나머지 바이트는 무작위로 설정
+    for (int i = 1; i < 6; i++) {
+        mac[i] = rand() % 256;
+    }
+}
+
 void initPacket(struct Beacon_Packet *packet, const char *ssid) {
     // Structure initialization function modified
     memset(packet, 0, sizeof(struct Beacon_Packet));
@@ -93,7 +104,8 @@ int main(int argc, char *argv[]) {
 
             // Beacon_Packet 구조체 초기화 함수 호출
             initPacket(&packet, ssid);
-            // Source Address변경
+            // Source Address변경, 이제 이부분만 하면 되지 않을까?
+            generateRandomMac(packet.source_address);
 
             memcpy(packet.bssid,packet.source_address,6);
             // 패킷을 pcap으로 전송
@@ -101,7 +113,7 @@ int main(int argc, char *argv[]) {
                 printf("send fail\n");
                 exit(-1);
             } // Beacon Flooding 패킷을 보냄
-            usleep(10000);
+            usleep(100000);
         }
     }
 
