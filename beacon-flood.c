@@ -98,7 +98,9 @@ void generateRandomMac(uint8_t *mac)
         mac[i] = rand() % 256;
     }
 }
-
+void initPacket2(struct Packet *packet){
+    memset(packet,0,sizeof(struct Packet));
+}
 void initPacket(struct Packet *packet)
 {
     // Structure initialization function modified
@@ -119,9 +121,9 @@ void initPacket(struct Packet *packet)
     packet->beacon.sequence_number = 0x0000;
 
     //Fixed
-    packet->fixed.timestamp = 0x0000000000000000;
-    packet->fixed.interval = 0x0000;
-    packet->fixed.capabilities = 0x0000;
+    packet->fixed.timestamp = 0x76f11d4907010000;
+    packet->fixed.interval = 0x6400;
+    packet->fixed.capabilities = 0x1104;
 
     //SSID
     packet->tag_ssid.number = 0x00;
@@ -135,8 +137,8 @@ void initPacket(struct Packet *packet)
 
     //Support
     packet->tag_support.number = 0x01;
-    packet->tag_support.length = 0x03;
-    uint8_t rate[] = {0x32,0x8b,0x95};
+    packet->tag_support.length = 0x08;
+    uint8_t rate[] = {0x82,0x84,0x8b,0x96,0x0c,0x12,0x18,0x24};
     memcpy(packet->tag_support.rates,rate,sizeof(rate));
 
 }

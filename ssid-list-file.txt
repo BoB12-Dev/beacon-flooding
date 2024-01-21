@@ -1,3 +1,9 @@
 test_beacon1
 test_beacon2
 test_beacon3
+test_beacon4
+test_beacon5
+test_beacon6
+test_beacon7
+test_beacon8
+test_beacon9
