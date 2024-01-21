@@ -1,1 +1,5 @@
-test_beacon
+test_beacon1
+test_beacon2
+test_beacon3
+test_beacon4
+test_beacon5
