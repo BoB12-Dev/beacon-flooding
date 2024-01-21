@@ -28,42 +28,9 @@ struct Beacon_Packet {
     } tag_ssid;
 };
 
-
-void generateRandomMac(uint8_t *mac) {
-    // 첫 번째 바이트는 Locally Administered로 설정 (02:xx:xx:xx:xx:xx)
-    mac[0] = 0x02;
-
-    // 나머지 바이트는 무작위로 설정
-    for (int i = 1; i < 6; i++) {
-        mac[i] = rand() % 256;
-    }
-}
-
-void initPacket(struct Beacon_Packet *packet, const char *ssid) {
-    // Structure initialization function modified
-    memset(packet, 0, sizeof(struct Beacon_Packet));
-
-    // Common values setting
-    packet->type = 0x0800; // Beacon Frame type
-    packet->duration = 0;
-
-    // Set destination_address to broadcast address (FF:FF:FF:FF:FF:FF)
-    memset(packet->destination_address, 0xFF, 6);
-
-    // Set source_address (can be your device's MAC address)
-    memset(packet->source_address, 0, 6);
-
-    // Set BSSID
-    memset(packet->bssid, 0, 6);
-
-    // Set sequence_number
-    packet->sequence_number = 0;
-
-    // Set SSID
-    packet->tag_ssid.tag_number = 0; // Tag number for SSID
-    packet->tag_ssid.tag_length = strlen(ssid); // Length of SSID
-    strncpy((char *)packet->tag_ssid.ssid, ssid, sizeof(packet->tag_ssid.ssid) - 1);
-}
+void generateRandomMac(u_int8_t *mac);
+void initPacket(struct Beacon_Packet *packet, const char *ssid);
+void printMacAddress(uint8_t *mac);
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
@@ -92,33 +59,81 @@ int main(int argc, char *argv[]) {
     struct Beacon_Packet packet;
 
     while (true) {
-        // Move to the beginning of the file when reaching the end
-        if (feof(fp)) {
-            fseek(fp, 0, SEEK_SET);
-        }
-
         while ((fgets(beacon_name, sizeof(beacon_name), fp)) != 0) {
             // 파일에서 한 줄을 읽어와 flooding할 beacon name을 설정.
             char *ssid = strtok(beacon_name, "\r\n\t");
-            printf("ssid name : %s\n", ssid);
+            
 
             // Beacon_Packet 구조체 초기화 함수 호출
             initPacket(&packet, ssid);
-            // Source Address변경, 이제 이부분만 하면 되지 않을까?
+            // Source Address 설정
             generateRandomMac(packet.source_address);
+            // 나머지 필요한 값들을 설정
+            memcpy(packet.tag_ssid.ssid, ssid, 32);
+            memcpy(packet.bssid, packet.source_address, 6);
 
-            memcpy(packet.bssid,packet.source_address,6);
+
+            printMacAddress(packet.source_address);
+            printf("ssid name : %s\n", ssid);
             // 패킷을 pcap으로 전송
             if (pcap_sendpacket(pcap, (unsigned char*)&packet, sizeof(packet)) != 0) {
                 printf("send fail\n");
                 exit(-1);
             } // Beacon Flooding 패킷을 보냄
-            usleep(100000);
+            usleep(10);
         }
+        // 파일 첫부분으로 이동
+        if (feof(fp)) {
+            fseek(fp, 0, SEEK_SET);
+        }
+        memset(packet.source_address,0,6);
     }
 
     fclose(fp);
     pcap_close(pcap);
     printf("pcap close!\n");
     return 0;
+}
+
+void generateRandomMac(uint8_t *mac) {
+    mac[0] = 0x00;
+    for (int i = 0; i < 6; i++) {
+        mac[i] = rand() % 256;
+    }
+}
+
+void initPacket(struct Beacon_Packet *packet, const char *ssid) {
+    // Structure initialization function modified
+    memset(packet, 0, sizeof(struct Beacon_Packet));
+
+    // Common values setting
+    packet->type = 0x0800; // Beacon Frame type
+    packet->duration = 0;
+
+    // Set destination_address to broadcast address (FF:FF:FF:FF:FF:FF)
+    memset(packet->destination_address, 0xFF, 6);
+    memset(packet->source_address, 0, 6);
+    memset(packet->bssid, 0, 6);
+    packet->sequence_number = 0;
+    packet->tag_ssid.tag_number = 0; // Tag number for SSID
+    packet->tag_ssid.tag_length = strlen(ssid); // Length of SSID
+    strncpy((char *)packet->tag_ssid.ssid, ssid, sizeof(packet->tag_ssid.ssid) - 1);
+}
+
+
+// void printMacAddress(uint8_t *mac){
+//     printf("tmp MAC address : %02X:%02X:%02X:%02X:%02X:%02X \n", 
+//         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], mac[6]
+//     );
+// }
+
+void printMacAddress(uint8_t *mac) {
+    printf("tmp MAC address: ");
+    for (int i = 0; i < 6; i++) {
+        printf("%02X", mac[i]);
+        if (i < 5) {
+            printf(":");
+        }
+    }
+    printf("\n");
 }
