@@ -109,7 +109,7 @@ struct Taged_DS_Parameter {
 struct Taged_Support_Parameter {
     uint8_t number;
     uint8_t length;
-    uint8_t rates[3];
+    uint8_t rates[8];
 }; // taged_support 5byte
 
 struct Packet {
